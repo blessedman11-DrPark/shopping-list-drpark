@@ -153,6 +153,24 @@
             flex: 1;
             font-size: 16px;
             color: #333;
+            cursor: pointer;
+        }
+
+        .item-text:hover {
+            background: #e8e8e8;
+            border-radius: 4px;
+            padding: 2px 6px;
+            margin: -2px -6px;
+        }
+
+        .edit-input {
+            flex: 1;
+            font-size: 16px;
+            color: #333;
+            border: 2px solid #667eea;
+            border-radius: 4px;
+            padding: 4px 8px;
+            outline: none;
         }
 
         .delete-btn {
@@ -294,6 +312,64 @@
             renderList();
         }
 
+        // 아이템 수정 모드 시작
+        function startEdit(id) {
+            const item = items.find(item => item.id === id);
+            if (!item) return;
+
+            const itemElement = document.querySelector(`[data-id="${id}"] .item-text`);
+            const currentText = item.text;
+
+            itemElement.outerHTML = `<input type="text" class="edit-input" value="${escapeHtml(currentText)}"
+                onblur="saveEdit('${id}', this.value)"
+                onkeypress="handleEditKeyPress(event, '${id}', this.value)"
+                onkeydown="handleEditKeyDown(event)">`;
+
+            const input = document.querySelector(`[data-id="${id}"] .edit-input`);
+            input.focus();
+            input.select();
+        }
+
+        // 수정 저장
+        async function saveEdit(id, newText) {
+            const trimmedText = newText.trim();
+            const item = items.find(item => item.id === id);
+            if (!item) return;
+
+            if (trimmedText === '' || trimmedText === item.text) {
+                renderList();
+                return;
+            }
+
+            const { error } = await supabaseClient
+                .from('shopping_items')
+                .update({ text: trimmedText })
+                .eq('id', id);
+
+            if (error) {
+                console.error('아이템 수정 오류:', error);
+                renderList();
+                return;
+            }
+
+            item.text = trimmedText;
+            renderList();
+        }
+
+        // 수정 중 Enter 키 처리
+        function handleEditKeyPress(event, id, value) {
+            if (event.key === 'Enter') {
+                event.target.blur();
+            }
+        }
+
+        // 수정 중 Escape 키 처리
+        function handleEditKeyDown(event) {
+            if (event.key === 'Escape') {
+                renderList();
+            }
+        }
+
         function renderList() {
             const listSection = document.getElementById('listSection');
             const stats = document.getElementById('stats');
@@ -311,7 +387,7 @@
                 html += `
                     <div class="item ${item.checked ? 'checked' : ''}" data-id="${item.id}">
                         <div class="checkbox" onclick="toggleItem('${item.id}')"></div>
-                        <span class="item-text">${escapeHtml(item.text)}</span>
+                        <span class="item-text" onclick="startEdit('${item.id}')">${escapeHtml(item.text)}</span>
                         <button class="delete-btn" onclick="deleteItem('${item.id}')">×</button>
                     </div>
                 `;
